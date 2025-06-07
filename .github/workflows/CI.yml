@@ -44,7 +44,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang libclang-dev pkg-config krb5-multidev
+          sudo apt-get install -y clang libclang-dev libkrb5-dev
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
