@@ -40,8 +40,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install system dependencies
         run: |
-          apt update
-          apt install -y libkrb5-dev libgssapi-krb5-2 llvm-dev libclang-dev clang pkg-config
+          sudo apt update
+          sudo apt install -y libkrb5-dev libgssapi-krb5-2 llvm-dev libclang-dev clang pkg-config
           echo "LIBCLANG_PATH=/usr/lib/llvm-14/lib" >> $GITHUB_ENV
       - uses: actions/setup-python@v5
         with:
