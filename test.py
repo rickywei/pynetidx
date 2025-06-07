@@ -4,19 +4,26 @@ import pynetidx
 
 
 def cb(id, val):
-    print(id, val)
+    print("callback", id, val)
 
 
 async def subscribe():
+    print("Starting subscriber")
     sub = pynetidx.PySubscriber()
-    ret = await sub.subscribe(["/test"])
-    print(ret)
+    ret = await sub.subscribe(["/test", "/xxx"])
+    while True:
+        data = await sub.receive(cb)
+        print(data)
 
 
 async def publish():
+    print("Starting publisher")
     pub = pynetidx.PyPublisher()
-    ret = await pub.publish({"/test": 123})
-    print(ret)
+    a = 1.1
+    while True:
+        ret = await pub.publish({"/test": a, "/xxx": "xxx"})
+        await asyncio.sleep(1)
+        a += 1
 
 
 if __name__ == "__main__":

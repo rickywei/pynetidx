@@ -1,0 +1,5 @@
+{
+  "name": "My GCC Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",  
+  "postCreateCommand": "sudo apt update && sudo apt install -y software-properties-common && sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y && sudo apt update && sudo apt install -y gcc-12 g++-12 && sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 && sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100"
+}

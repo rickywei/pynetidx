@@ -1,0 +1,20 @@
+{
+  "parent": null,
+  "children": [],
+  "member_servers": [
+    {
+      "pid_file": "",
+      "addr": "127.0.0.1:4564",
+      "max_connections": 1024,
+      "hello_timeout": 10,
+      "reader_ttl": 60,
+      "writer_ttl": 120,
+      "auth": "Anonymous"
+    }
+  ],
+  "perms": {
+    "/": {
+      "": "swlpd"
+    }
+  }
+}

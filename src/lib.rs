@@ -6,12 +6,22 @@ use netidx::{
     publisher::{Publisher, PublisherBuilder, Val, Value},
     subscriber::{Dval, Event, SubId, Subscriber, SubscriberBuilder, UpdatesFlags},
 };
+use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use pyo3::{call, prelude::*};
 use pyo3_async_runtimes::tokio::{future_into_py, get_runtime};
+use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
-use std::{fmt::format, time::Duration};
 use tokio::sync::Mutex;
+
+macro_rules! py_callback {
+    ($callback:expr, $id:expr, $val:expr) => {
+        Python::with_gil(|py| {
+            $callback
+                .call(py, (format!("{:?}", $id), $val), None)
+                .map_err(|e| PyErr::from(e))
+        })?
+    };
+}
 
 #[pyclass]
 struct PySubscriber {
@@ -42,8 +52,8 @@ impl PySubscriber {
 
     fn subscribe<'py>(&self, py: Python<'py>, paths: Vec<String>) -> PyResult<Bound<'py, PyAny>> {
         let subscriber = self.subscriber.clone();
-        let tx = self.tx.clone();
         let subs = self.subs.clone();
+        let tx = self.tx.clone();
 
         future_into_py(py, async move {
             let mut ret = HashMap::new();
@@ -58,29 +68,30 @@ impl PySubscriber {
         })
     }
 
-    fn receiving<'py>(&self, py: Python<'py>, callback: PyObject) -> PyResult<Bound<'py, PyAny>> {
+    fn receive<'py>(&self, py: Python<'py>, callback: PyObject) -> PyResult<Bound<'py, PyAny>> {
         let rx = self.rx.clone();
         let callback = callback.clone_ref(py);
 
-        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+        future_into_py(py, async move {
             let mut rx = rx.lock().await;
             while let Some(mut updates) = rx.next().await {
                 for (id, ev) in updates.drain(..) {
                     if let Event::Update(v) = ev {
                         match v {
-                            Value::F64(x) => {
-                                Python::with_gil(|py| {
-                                    if let Err(e) =
-                                        callback.call(py, (format!("{:?}", id), x), None)
-                                    {
-                                        eprintln!("Error calling callback: {:?}", e);
-                                    }
-                                });
-                            }
+                            Value::F64(x) => py_callback!(callback, id, x),
+                            Value::F32(x) => py_callback!(callback, id, x),
+                            Value::I64(x) => py_callback!(callback, id, x),
+                            Value::I32(x) => py_callback!(callback, id, x),
+                            Value::U64(x) => py_callback!(callback, id, x),
+                            Value::U32(x) => py_callback!(callback, id, x),
+                            Value::Bool(x) => py_callback!(callback, id, x),
+                            Value::String(ref x) => py_callback!(callback, id, x.to_string()),
                             _ => {
-                                eprintln!("unsupported: {:?}", v);
+                                return Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                                    format!("Unsupported subscribe type"),
+                                ));
                             }
-                        }
+                        };
                     }
                 }
             }
@@ -116,45 +127,48 @@ impl PyPublisher {
         py: Python<'py>,
         updates: Bound<'py, PyDict>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let publisher = &self.publisher;
-        let pubs = &self.pubs;
+        let publisher = Arc::clone(&self.publisher);
+        let pubs = Arc::clone(&self.pubs);
 
         let mut rust_updates: HashMap<String, Value> = HashMap::new();
         for (k, v) in updates.iter() {
-            let key = k.extract::<String>().unwrap();
-            // Convert Python value to netidx Value
+            let key = k.extract::<String>()?;
             let val = if v.is_instance_of::<pyo3::types::PyFloat>() {
-                Value::F64(v.extract::<f64>().unwrap())
+                Value::F64(v.extract::<f64>()?)
             } else if v.is_instance_of::<pyo3::types::PyInt>() {
-                Value::I64(v.extract::<i64>().unwrap())
+                Value::I64(v.extract::<i64>()?)
             } else if v.is_instance_of::<pyo3::types::PyString>() {
-                Value::String(v.extract::<String>().unwrap().into())
+                Value::String(v.extract::<String>()?.into())
             } else if v.is_instance_of::<pyo3::types::PyBool>() {
-                Value::Bool(v.extract::<bool>().unwrap())
+                Value::Bool(v.extract::<bool>()?)
             } else {
-                panic!("Unsupported type for publishing: {:?}", v.get_type().name())
+                Value::Error(format!("Unsupported publish type {}", v.get_type()).into())
             };
             rust_updates.insert(key, val);
         }
 
-        let publisher = Arc::clone(publisher);
-        let pubs = Arc::clone(pubs);
         future_into_py(py, async move {
             let mut batch = publisher.lock().await.start_batch();
+            let mut pubs = pubs.lock().await;
             for (k, v) in rust_updates {
-                pubs.lock()
-                    .await
-                    .entry(k.clone())
-                    .and_modify(|val| val.update(&mut batch, v.clone()))
-                    .or_insert(publisher.lock().await.publish(k.into(), v).unwrap());
+                if let Some(val) = pubs.get_mut(&k) {
+                    val.update_changed(&mut batch, v.clone());
+                } else {
+                    let val = publisher
+                        .lock()
+                        .await
+                        .publish(k.clone().into(), v)
+                        .map_err(|e| {
+                            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{e}"))
+                        })?;
+                    pubs.insert(k, val);
+                }
             }
             batch.commit(Some(Duration::from_secs(2))).await;
             Ok(())
         })
     }
 }
-
-// ----------------------------------------------------------------------------
 
 #[pymodule]
 fn pynetidx(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {

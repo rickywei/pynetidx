@@ -1,7 +1,9 @@
 {
     "addrs":
     [
-        ["127.0.0.1:4564", {"Local": "/tmp/netidx-auth"}]
+        ["127.0.0.1:4564", "Anonymous"]
     ],
-    "base": "/"
+    "base": "/",
+    "default_auth": "Anonymous",
+    "default_bind_config": "127.0.0.1/32"
 }
