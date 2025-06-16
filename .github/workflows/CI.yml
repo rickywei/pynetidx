@@ -45,6 +45,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang libclang-dev libkrb5-dev
+      - name: Find and set LIBCLANG_PATH dynamically
+        run: |
+          LIBCLANG_SO=$(find /usr/lib /usr/lib/llvm* /usr/local/lib -name 'libclang.so*' 2>/dev/null | head -n 1)
+          if [ -z "$LIBCLANG_SO" ]; then
+            echo "libclang.so not found!"
+            exit 1
+          fi
+          export LIBCLANG_PATH=$(dirname "$LIBCLANG_SO")
+          echo "LIBCLANG_PATH=$LIBCLANG_PATH" >> $GITHUB_ENV
+          echo "Detected LIBCLANG_PATH: $LIBCLANG_PATH"
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
