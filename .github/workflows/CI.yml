@@ -47,7 +47,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
-          manylinux: auto
+          manylinux: 2_28
           before-script-linux: |
             yum update -y
             yum install -y epel-release
