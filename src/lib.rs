@@ -6,7 +6,7 @@ use netidx::{
     publisher::{Publisher, PublisherBuilder, Val, Value},
     subscriber::{Dval, Event, SubId, Subscriber, SubscriberBuilder, UpdatesFlags},
 };
-use pyo3::{prelude::*, types::PyList};
+use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3_async_runtimes::tokio::{future_into_py, get_runtime};
 use std::time::Duration;
