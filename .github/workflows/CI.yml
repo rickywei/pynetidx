@@ -51,7 +51,7 @@ jobs:
           before-script-linux: |
             yum update -y
             yum install -y epel-release
-            yum install -y krb5-devel clang llvm llvm-devel libclang-devel
+            yum install -y krb5-devel clang llvm
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
