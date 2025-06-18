@@ -1,4 +1,12 @@
 fn main() {
+    return;
+
+    // for cross compile by using cargo build without maturin
+    #[allow(unreachable_code)]
+    setup_windows();
+}
+
+fn setup_windows() {
     if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "windows" {
         let cross_lib_dir = std::env::var_os("PYO3_CROSS_LIB_DIR")
             .expect("PYO3_CROSS_LIB_DIR is not set when cross-compiling");
