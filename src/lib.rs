@@ -1,16 +1,14 @@
-use futures::channel::mpsc;
-use futures::StreamExt;
+use std::{collections::HashMap, sync::Arc, time::Duration};
+
+use futures::{channel::mpsc, StreamExt};
 use netidx::{
     config::Config,
     pool::Pooled,
     publisher::{Publisher, PublisherBuilder, Val, Value},
     subscriber::{Dval, Event, SubId, Subscriber, SubscriberBuilder, UpdatesFlags},
 };
-use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::{prelude::*, types::PyDict};
 use pyo3_async_runtimes::tokio::{future_into_py, get_runtime};
-use std::time::Duration;
-use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 macro_rules! py_callback {
@@ -78,6 +76,11 @@ impl PySubscriber {
                 for (id, ev) in updates.drain(..) {
                     if let Event::Update(v) = ev {
                         match v {
+                            Value::Null => Python::with_gil(|py| {
+                                callback
+                                    .call(py, (format!("{:?}", id), py.None()), None)
+                                    .map_err(|e| PyErr::from(e))
+                            })?,
                             Value::F64(x) => py_callback!(callback, id, x),
                             Value::F32(x) => py_callback!(callback, id, x),
                             Value::I64(x) => py_callback!(callback, id, x),
